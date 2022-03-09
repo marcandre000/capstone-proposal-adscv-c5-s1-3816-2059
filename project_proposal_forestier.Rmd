@@ -1,0 +1,363 @@
+---
+title: Capstone proposal by Marc-André FORESTIER
+ 
+ TRENDS' MARKET VISUALISATION
+
+date: "02/03/2022"
+output: ## github_document
+  html_document:
+    df_print: paged
+    toc: true
+    toc_depth: 4
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+---
+
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE)
+
+```
+
+
+
+## **1) The problem**
+
+•	This project is part of a finance context and particularly the Stocks' Exchange area. 
+For two years have we met multiple huge events worldwide which have some large impacts on the prices of financial instruments quoted in all Stock Exchanges places.
+
+
+•	It seems to be interesting to visualize the evolution of stocks and their performances (rates of return) on one week, one month or one year and perhaps to compare the performance of each other.
+
+This web app will be dedicated to people who have invested in the stock' exchange domain and want to manage their securities' portfolio by them-self.
+The share holders need to know what is the prices' history of some stocks and potentially to buy an financial instrument or to sell any positions which they could hold in their portfolio in a bank.
+
+
+•	In this project we will be able to propose a dashboard to visualize the trends of financial markets.  
+
+
+
+## **2) The data**
+
+
+### a) Overview
+
+#### Source and context of the data 
+•	The data will be downloaded from YAHOO database by using the package {tidyquant} specially designed to access to that website.
+This library proposes some functions to get data and arrange the data in a proper format allowing to treat it quickly.
+
+•	The data will be not shown in real-time.
+
+#### Sample of the data ("Amazon", "Apple Inc.", "BioNTech", "Lindt Chocolates", "NetFlix", "UBS" etc...)
+•	Find below a sample of the data which could be extracted!
+In this explanation take we the following stocks/equities :
+
+
+```{r}
+## Load libraries
+library(readr)
+library(dplyr)
+library(tidyquant)
+
+## Load of the list of tickers'symbol 
+tickers_symbol <-  readr::read_csv("tickers_symbol.csv")
+tickers_symbol
+```
+
+In the project will we propose a list of several thousands of tickers symbol. That list will be static.
+
+
+#### Definition of the data extracted
+
+
+```{r}
+##  List of stocks to show by default
+symbols <-  readr::read_csv("tickers_dashboard.csv")
+symbol_demo <- tq_get(symbols,
+                      from = "2022-02-24",
+                      to = "2022-02-26",
+                      get = "stock.prices")
+symbol_demo
+
+```
+
+•	Definition of the data which we will extract:
+
+- symbol: the short name of a financial instrument like APPL represents Apple, NFLX corresponds to Netflix. In the finance domain is it called "ticker symbol".
+- date : the date of the price for a specific symbol
+- open : the first price at the opening of the stock exchange
+- high : the highest price of the day
+- low : the lowest price of the day
+- close : the last price at the closing of the stock exchange
+- volume : the number of stocks/shares exchanged during the day
+- adjusted : the price at the closing of the stock exchange which could be adjusted if needed. 
+
+By default it's the closing'price and that is published
+
+•	Granularity of the data: For each stock, we will have only one quotation per day if the stocks' exchange place is open.
+
+•	Quality of the data: 
+The package {tidyquant} handles the quality of the data.
+
+
+
+### b) Managing data
+•	We will prepare a list of all symbols (tickers) and their description in a CSV file allowing to let the user to select which stocks are needed.  A function will be available to refresh this list on demand.
+
+The ticker symbol included in that list of stocks, will be the key's binding to download the dataset.
+
+•	Data cleaning should be very limited as "tidyquant" library will take the ownership of this task.
+
+
+## **3) Exploratory data analysis**
+
+### a) Preliminary EDA
+•	We can see below a sample of UBS stock since Jan 1st, 2022
+
+#### Chart of the UBS' performance represented in TimeSeries
+```{r}
+## Plot the UBS prices since 01/01/2021
+prices_list <- tidyquant::tq_get(symbols,
+               from = "2021-01-01",
+               to = "2022-02-26",
+               get = "stock.prices")
+
+prices_list %>%
+  filter(symbol == "UBSG.SW") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = date, y = adjusted, color = symbol)) +
+  ggplot2::geom_line() +
+  ggplot2::theme_classic() +
+  ggplot2::labs(x = 'Date',
+                y = "Adjusted Price",
+                title = "Prices evolution since Jan 1st, 2021") +
+  ggplot2::scale_y_continuous(breaks = seq(0,25,1))
+
+
+```
+
+
+•	In this application want we to show the rate of return of a security (stock) on several weeks or months. The goal will be to calculate the rate of each day and to add it to the sum of previous rates otherwise we will show only the variation per day which doesn't seem to be relevant.
+
+#### Chart of the variation UBS' prices shown in percent
+```{r}
+full_tibble <- prices_list %>%
+  dplyr::mutate(variation = adjusted - open,
+                var_percent = (variation * 100) / open) %>%
+  dplyr::mutate(variation = round(variation , digits=2),
+                var_percent = round(var_percent , digits=2) ) %>%
+  dplyr::select(date, symbol, open, adjusted, high, low, variation, var_percent)
+
+## Plot the curve in percent for only one ticker symbol
+full_tibble %>%
+  filter(symbol == "UBSG.SW") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = date, y = var_percent, color = symbol)) +
+  ggplot2::geom_line() +
+  hrbrthemes::theme_ipsum() +
+  ggplot2::labs(x = 'Date',
+                y = "Variation in %")
+```
+
+
+
+### b) How does the EDA inform your project plan?
+
+
+
+• We identifed the list of stocks proposed by YAHOO is limited to american market's places.
+
+In the API available can developers not retrieve the full list of components of any indexes outsite of US. The CAC40 ou SMI indexes are not referenced in that website for example.
+
+However a french or swiss stock can be extracted from that remote database anyway. It means that we need to maintain manually a CSV file if we want to retrieve prices of equities not quoted in NASDAQ or DOWJONES etc ...
+
+The quotation of the banking company UBS is available and its symbol is UBSG.SW.
+If we wanted the prices of Nestlé SA or Lindt Chocolates we have to investigate in YAHOO website what is the symbol for this specific stock and we will find them.
+
+In fact, YAHOO use the official ticker symbol of an equity and added a suffix ".SW" for all quoted stocks in SWITZERLAND which means for Nesthlé S.A, the symbol becomes "NESN.SW"
+
+
+
+
+### c) What further EDA do you plan for project?
+
+•	The investor should identify if an equity, bond or a fund is extremely volatile to be mindful of any potential risk of loss or quick gain.
+The comparison of the curves between several financial instruments could become an important approach for making investment decisions and visualizing the volatility concretely.
+In addition, it is always profitable to be able to forecast a rise or fall in the stock's market.
+
+In this context, the web app will be built to show a trend on the screen based the prices' history of an instrument.
+
+•	We will exclude to produce any financial information regarding the security's issuers neither political' decisions taken by governments which could impact the prices.  It could be a new feature in a next version of that application.
+
+## **4) Data Visualisation and Communication**   {.tabset}
+
+### Product
+•	It will be a question of developing a shiny web app which will be formed of some tabs in which the user will have a data visualisation on the screen and if he wishes it to download it in pdf format.
+
+In other words will it be a dashboard to represent the prices'history and will let the choice to users how, how long and which data they would like to visualize.
+
+•	 What data visualisations and tables will be built?  We suggest to click on the different tabs
+
+•	These visualisations will give quickly a clear picture of the evolution of the stock'prices.
+We will be able to identify if any decline in a stock's price is related to a global trend or is it a genuine internal company issue.
+
+### Stocks'selection 
+#### My Portfolio
+
+•	On the first screen (first tab) will we have the stocks' selection then they will be shown in a table with the securities' rates of the day. 
+
+```{r}
+## Show table
+dashboard_tibble <- dplyr::left_join(full_tibble, tickers_symbol, by="symbol") %>% 
+  dplyr::group_by(symbol) %>% 
+  dplyr::slice_max(date) %>% 
+  dplyr::select(symbol, stock_description, adjusted, variation, var_percent)
+dashboard_tibble
+  
+```
+
+
+The user could save the list of selected tickers'symbol in a CSV file allowing to retrieve them in the next session and to load that selection as default dashboard.
+
+### History
+
+#### History of the stocks' prices
+•	We propose to show in a table further detail on the stocks allowing to see the important data in a table. Then we will plot TimeSeries to visualize quickly the trends. 
+
+The curve will be drawn based on dates' period selected by the user.
+
+```{r}
+prices_list %>%
+  filter(symbol == "UBSG.SW") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = date, y = adjusted, color = symbol)) +
+  ggplot2::geom_line() +
+  ggplot2::theme_classic() +
+  ggplot2::labs(x = 'Date',
+                y = "Adjusted Price",
+                title = "Prices evolution since Jan 1st, 2021") +
+  ggplot2::scale_y_continuous(breaks = seq(0,25,1))
+
+```
+
+### Volumes
+#### Volumes
+
+•	We would like to propose to the user an option to visualize the daily volumes in histogram plot.
+
+The chart will be plotted based on dates' period selected by the user.
+
+
+
+
+### Candlestick chart
+#### Chart of the UBS' data represented in a candlestick chart
+
+Investors are interested in viewing the lower and higher prices of the day and it will be represented by a candlestick chart proposed in the library tidyquant (function : geom_candlestick).
+
+On this plot will we draw the moving prices' average giving the real market's trend for the specific stock.  We will use the function tidyquant::geom_ma_ to visualize it.
+
+
+```{r}
+full_tibble %>%
+  filter(symbol == "UBSG.SW") %>% 
+  ggplot2::ggplot(ggplot2::aes(x = date, y = adjusted)) +
+  tidyquant::geom_candlestick(
+    ggplot2::aes(
+      open = open,
+      high = high,
+      low = low,
+      close = adjusted
+    ),
+    stat = "identity",
+    position = "identity",
+    na.rm = TRUE,
+    show.legend = TRUE,
+    inherit.aes = TRUE,
+    colour_up = "black",
+    colour_down = "black",
+    fill_up = "green",
+    fill_down = "red",
+  ) +
+  tidyquant::geom_ma_(
+    inherit.aes = TRUE,
+    color = "darkgreen",
+    n = 30,   ## average on the last 30 quotations' days
+    ma_fun = "SMA",
+  ) +
+  coord_x_date(xlim = c("2021-01-01", "2022-02-25"),
+               ylim = c(12, 23))
+
+```
+
+### Comparison
+
+#### Chart of comparison of stocks' prices represented in a facet_wrap
+•	In the Tab are we going to show the comparison between several instruments. We recommend to plot with a facet_wrap chart.
+
+```{r}
+##  Plot comparison of stocks' prices
+
+
+full_tibble %>%
+  ggplot2::ggplot(ggplot2::aes(x = date, y = adjusted, color = symbol)) +
+  ggplot2::geom_line() +
+  ggplot2::facet_wrap(~symbol,scales = 'free_y') +
+  ggplot2::labs(x = 'Date',
+       y = "Stock' prices",
+       title = "Stocks' comparison") +
+  ggplot2::scale_x_date(date_breaks = "3 month",
+               date_labels = "%b\n%y")+
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+
+```
+
+We need to keep in mind the prices's difference could be huge in certain cases like for example Lindt Chocolate vs the UBS prices. If we compare both the curve for the bank item could be ridiculous.
+So, we will need to compare them it's required to adapt the vertical axis or to make a comparison in percent.
+
+
+###  Best performers
+
+#### Best performers represented in a histogram chart
+•	In this tab we will get a clear idea of the best performing instruments and sort them in a histogram chart.
+
+
+
+
+### Appendix
+
+Find below a list of common words used in that project:
+
+- stocks : it's the capital raised by a company and split in thousand of portions in which an investor subscribes/buys.
+
+- equity : synonym of stock
+
+- security : synonym of stock
+
+- financial instrument : synonym of stock and could be a share, bond, fund
+
+- shares : synonym of stock
+
+- share holder : people/institutions who hold some stocks in their portfolio
+
+- rate of return : represents the gain or loss in investment and shown in percentage
+
+- stock performance : is the measurement of a stock's ability to increase or decrease the wealth of its shareholders. 
+
+```{r}
+
+```
+
+
+## **5) Optional Features**
+
+### a) Get a list of stocks quoted in SMI and CAC40 indexes
+
+•	If our employer agrees with our proposal, we would like to get a list of swiss stocks quoted in Swiss Market Index (SMI) and french CAC40 index.  The discussion with the security department is in progress and we need their approval to extract any data from the bank.
+
+### b) Download of report in pdf format
+
+•	We would like to propose an action button to download the chart shown on screen where the user will be.
+This feature will be developped if all suggested tabs are completed.
